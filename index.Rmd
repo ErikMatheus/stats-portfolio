@@ -12,17 +12,173 @@ output:
 knitr::opts_chunk$set(echo = FALSE)
 library(flexdashboard)
 library(plotly)
+library(jsonlite)
+library(tidyverse)
+
+# Function to extract features
+extract_features <- function(json_file) {
+  data <- fromJSON(json_file)
+  
+  # Extract the features we want
+  tibble(
+    filename = data$metadata$tags$file_name,
+    bpm = data$rhythm$bpm,
+    danceability = data$rhythm$danceability,
+    key = paste(data$tonal$key_key, data$tonal$key_scale),
+    loudness = data$lowlevel$average_loudness,
+    onset_rate = data$rhythm$onset_rate,
+    beats_count = data$rhythm$beats_count
+  )
+}
 ```
 
-### Introduction to Mozart Analysis
-Welcome to Mozartology, a data-driven exploration of Mozart's musical works.
+### Für Elise: Human vs. AI-Generated Piano – A Musical Analysis
+Few pieces of music are as instantly recognizable as Für Elise by Ludwig van Beethoven. For many, including myself, this composition carries a sense of nostalgia, bringing back memories of childhood and the sound of a piano filling the home. However, with the rapid advancements in artificial intelligence, we now face an intriguing question: can AI truly replicate the nuance and emotion of a human performance?
+
+In this analysis, I compare a real human performance of Für Elise with an AI-generated attempt using Jen, a tool designed to create music based on text prompts. My initial attempt to generate the piece using the prompt "Piano, Bagatelle nr. 25 in A minor, Für Elise, Beethoven" resulted in a far-from-accurate rendition, raising important questions about the current state of AI music generation.
+
+By examining aspects such as melody, timing, expression, and overall structure, this analysis will explore the differences between human musicianship and AI-generated music.
 
 ***
 
-This dashboard presents various analyses of Mozart's compositions.
+Visualisations on the next page!
 
-### Compositional Timeline
+### Musical Feature Analysis
 ```{r}
-# Here we'll add visualization code later
-plot(1, 1, type="n", xlab="Year", ylab="Number of Works")
+# Load JSON files and extract features
+json_files <- list.files("C:/Users/erikl/Downloads/compmus-corpus-2025/features", 
+                         pattern = "*.json", full.names = TRUE)
+all_features <- map_df(json_files, extract_features) %>%
+  mutate(filename = gsub(".mp3.json", "", basename(filename)))  # Clean filenames
+
+# Default selected file
+selected_file <- "gijs-s-2"
+
+# Compute density estimates (to get approximate y-axis maximums for each feature)
+dens_bpm   <- density(all_features$bpm)
+max_bpm    <- max(dens_bpm$y)
+dens_dance <- density(all_features$danceability)
+max_dance  <- max(dens_dance$y)
+dens_onset <- density(all_features$onset_rate)
+max_onset  <- max(dens_onset$y)
+
+# Function to create density plots WITHOUT red lines
+create_density_plot <- function(data, feature, title, xlabel, fill_color) {
+  ggplot(data) +
+    geom_density(aes_string(x = feature), fill = fill_color, alpha = 0.6) +
+    theme_minimal() +
+    labs(title = title, x = xlabel, y = "Density") +
+    theme(plot.title = element_text(size = 14, face = "bold"))
+}
+
+# Create density plots
+plot_bpm   <- create_density_plot(all_features, "bpm", "Beats Per Minute (BPM)", "BPM", "lightblue")
+plot_dance <- create_density_plot(all_features, "danceability", "Danceability Score (0-1)", "Danceability", "lightgreen")
+plot_onset <- create_density_plot(all_features, "onset_rate", "Onset Rate (Events per Second)", "Onset Rate", "lightsalmon")
+
+# Convert to Plotly objects
+p1 <- ggplotly(plot_bpm)
+p2 <- ggplotly(plot_dance)
+p3 <- ggplotly(plot_onset)
+
+# Combine plots into a 3-row subplot
+fig <- subplot(p1, p2, p3, nrows = 3, shareX = FALSE, heights = c(0.33, 0.33, 0.33))
+
+# Get default red line positions
+default_bpm   <- all_features$bpm[all_features$filename == selected_file]
+default_dance <- all_features$danceability[all_features$filename == selected_file]
+default_onset <- all_features$onset_rate[all_features$filename == selected_file]
+
+# Add red lines as shapes using each subplot’s axis reference
+fig <- fig %>% layout(
+  shapes = list(
+    list(  # BPM subplot (first row)
+      type = "line",
+      x0 = default_bpm, x1 = default_bpm,
+      y0 = 0, y1 = max_bpm,
+      xref = "x1", yref = "y1",
+      line = list(color = "red", width = 2)
+    ),
+    list(  # Danceability subplot (second row)
+      type = "line",
+      x0 = default_dance, x1 = default_dance,
+      y0 = 0, y1 = max_dance,
+      xref = "x2", yref = "y2",
+      line = list(color = "red", width = 2)
+    ),
+    list(  # Onset Rate subplot (third row)
+      type = "line",
+      x0 = default_onset, x1 = default_onset,
+      y0 = 0, y1 = max_onset,
+      xref = "x3", yref = "y3",
+      line = list(color = "red", width = 2)
+    )
+  ),
+  title = paste("Audio Feature Distributions<br><sup>Selected track:", selected_file, "</sup>")
+)
+
+# Unique filenames for dropdown menu
+filenames <- sort(unique(all_features$filename))
+
+# Create dropdown buttons that update the red line positions and the title.
+dropdown_buttons <- lapply(filenames, function(fname) {
+  bpm_val   <- all_features$bpm[all_features$filename == fname]
+  dance_val <- all_features$danceability[all_features$filename == fname]
+  onset_val <- all_features$onset_rate[all_features$filename == fname]
+  
+  list(
+    method = "relayout",
+    args = list(list(
+      shapes = list(
+        list(  # BPM red line
+          type = "line",
+          x0 = bpm_val, x1 = bpm_val,
+          y0 = 0, y1 = max_bpm,
+          xref = "x1", yref = "y1",
+          line = list(color = "red", width = 2)
+        ),
+        list(  # Danceability red line
+          type = "line",
+          x0 = dance_val, x1 = dance_val,
+          y0 = 0, y1 = max_dance,
+          xref = "x2", yref = "y2",
+          line = list(color = "red", width = 2)
+        ),
+        list(  # Onset Rate red line
+          type = "line",
+          x0 = onset_val, x1 = onset_val,
+          y0 = 0, y1 = max_onset,
+          xref = "x3", yref = "y3",
+          line = list(color = "red", width = 2)
+        )
+      ),
+      title = paste("Audio Feature Distributions<br><sup>Selected track:", fname, "</sup>")
+    )),
+    label = fname
+  )
+})
+
+# Add the dropdown menu
+fig <- fig %>% layout(
+  updatemenus = list(
+    list(
+      type = "dropdown",
+      active = which(filenames == selected_file) - 1,  # 0-indexed
+      buttons = dropdown_buttons,
+      direction = "down",
+      showactive = TRUE,
+      x = 0.1,
+      y = 1.15,
+      xanchor = "left"
+    )
+  )
+)
+
+fig
 ```
+
+***
+
+The AI generated piano song scores relative low on all metrics while Für Elise has a relatively high bpm, low danceability and average onset rate. The fact that both piano songs have a low danceability isn't surprising, and it's great to see that Essentia is able to capture this feature well! 
+
+### Conclusion 
