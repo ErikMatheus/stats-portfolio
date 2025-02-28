@@ -182,3 +182,61 @@ fig
 The AI generated piano song scores relative low on all metrics while Für Elise has a relatively high bpm, low danceability and average onset rate. The fact that both piano songs have a low danceability isn't surprising, and it's great to see that Essentia is able to capture this feature well! 
 
 ### Conclusion 
+### Spectral Features Analysis
+```{r}
+# Function to extract spectral/timbre features
+extract_timbre_features <- function(json_file) {
+  data <- fromJSON(json_file)
+  
+  # Extract the timbral features we want
+  tibble(
+    filename = gsub(".mp3.json", "", basename(data$metadata$tags$file_name)),
+    # MFCC stats for timbre
+    mfcc1_mean = data$lowlevel$mfcc$mean[1],
+    mfcc2_mean = data$lowlevel$mfcc$mean[2],
+    mfcc3_mean = data$lowlevel$mfcc$mean[3],
+    # Spectral features
+    spectral_centroid = data$lowlevel$spectral_centroid$mean,
+    spectral_rolloff = data$lowlevel$spectral_rolloff$mean,
+    spectral_entropy = data$lowlevel$spectral_entropy$mean,
+    # Spectral contrast
+    spectral_contrast1 = data$lowlevel$spectral_contrast_coeffs$mean[1],
+    spectral_contrast2 = data$lowlevel$spectral_contrast_coeffs$mean[2],
+    spectral_contrast3 = data$lowlevel$spectral_contrast_coeffs$mean[3]
+  )
+}
+
+# Get all JSON files and extract features
+json_files <- list.files("C:/Users/erikl/Downloads/compmus-corpus-2025/features", 
+                        pattern = "*.json", 
+                        full.names = TRUE)
+timbre_features <- map_df(json_files, extract_timbre_features)
+
+# Create PCA of timbral features to compare songs
+pca_data <- timbre_features %>%
+  select(-filename) %>%
+  scale() %>%
+  prcomp()
+
+# Create PCA plot
+pca_plot <- timbre_features %>%
+  mutate(
+    PC1 = pca_data$x[,1],
+    PC2 = pca_data$x[,2]
+  ) %>%
+  ggplot(aes(x = PC1, y = PC2, text = filename)) +
+  geom_point(size = 3, alpha = 0.7) +
+  geom_point(data = filter(timbre_features, filename == "gijs-s-2") %>%
+              mutate(PC1 = pca_data$x[match(filename, timbre_features$filename),1],
+                     PC2 = pca_data$x[match(filename, timbre_features$filename),2]),
+             color = "red", size = 5) +
+  theme_minimal() +
+  labs(
+    title = "Timbre Features PCA",
+    subtitle = "Principal components of spectral features",
+    x = "PC1 (primary timbre dimension)",
+    y = "PC2 (secondary timbre dimension)"
+  )
+
+# Convert to interactive
+ggplotly(pca_plot)
