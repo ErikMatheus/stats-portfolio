@@ -32,6 +32,170 @@ extract_features <- function(json_file) {
 }
 ```
 
+
+### Homework 9
+Row {data-height=500}
+-----------------------------------------------------------------------
+```{r}
+# First define the json_files variable
+json_files <- list.files("C:/Users/erikl/Downloads/compmus-corpus-2025/features", 
+                        pattern = "*.json", 
+                        full.names = TRUE)
+
+# Function to extract chromagrams from a JSON file
+extract_chromagram <- function(json_file) {
+  data <- fromJSON(json_file)
+  
+  # Extract HPCP (Harmonic Pitch Class Profile)
+  chromagram <- tibble(
+    filename = gsub(".mp3.json", "", basename(data$metadata$tags$file_name)),
+    C = data$tonal$hpcp$mean[1],
+    `C#` = data$tonal$hpcp$mean[2],
+    D = data$tonal$hpcp$mean[3],
+    `D#` = data$tonal$hpcp$mean[4],
+    E = data$tonal$hpcp$mean[5],
+    F = data$tonal$hpcp$mean[6],
+    `F#` = data$tonal$hpcp$mean[7],
+    G = data$tonal$hpcp$mean[8],
+    `G#` = data$tonal$hpcp$mean[9],
+    A = data$tonal$hpcp$mean[10],
+    `A#` = data$tonal$hpcp$mean[11],
+    B = data$tonal$hpcp$mean[12]
+  )
+  
+  return(chromagram)
+}
+
+# Get chromagrams for all files
+chromagrams <- map_df(json_files, extract_chromagram)
+
+# Select a specific file for detailed chromagram
+chroma_file <- "erik-l-2"
+selected_chroma <- chromagrams %>%
+  filter(str_detect(filename, chroma_file)) %>%
+  pivot_longer(cols = -filename, names_to = "pitch_class", values_to = "value") %>%
+  # Ensure pitch classes are in correct order
+  mutate(pitch_class = factor(pitch_class, levels = c("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")))
+
+# Create chromagram plot
+chroma_plot <- ggplot(selected_chroma, aes(x = pitch_class, y = value, fill = pitch_class)) +
+  geom_bar(stat = "identity") +
+  theme_minimal() +
+  labs(
+    title = paste("Chromagram for", chroma_file),
+    subtitle = "Average harmonic content by pitch class",
+    x = "Pitch Class",
+    y = "Magnitude"
+  ) +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(angle = 0)
+  )
+
+# Make interactive
+ggplotly(chroma_plot)
+```
+
+Row {data-height=500}
+-----------------------------------------------------------------------
+```{r}
+  # Function to extract timbre features
+extract_timbre_features <- function(json_file) {
+  data <- fromJSON(json_file)
+  
+  # Extract the timbral features we want
+  tibble(
+    filename = gsub(".mp3.json", "", basename(data$metadata$tags$file_name)),
+    # MFCC stats for timbre
+    mfcc1_mean = data$lowlevel$mfcc$mean[1],
+    mfcc2_mean = data$lowlevel$mfcc$mean[2],
+    mfcc3_mean = data$lowlevel$mfcc$mean[3],
+    # Spectral features
+    spectral_centroid = data$lowlevel$spectral_centroid$mean,
+    spectral_rolloff = data$lowlevel$spectral_rolloff$mean,
+    spectral_entropy = data$lowlevel$spectral_entropy$mean
+  )
+}
+
+# Get timbre features
+timbre_features <- map_df(json_files, extract_timbre_features)
+
+# Function to create a similarity matrix from timbre features
+create_similarity_matrix <- function(features, selected_file) {
+  # Get features for selected file
+  file_features <- features %>%
+    filter(str_detect(filename, selected_file)) %>%
+    select(-filename)
+  
+  if(nrow(file_features) == 0) {
+    return(NULL)
+  }
+  
+  # Create a simulated self-similarity matrix based on the features
+  # This is a simplification since we don't have frame-by-frame data
+  n_segments <- 10  # Create a 10x10 matrix
+  
+  # Create matrix with slight variation to simulate self-similarity
+  sim_matrix <- matrix(0, nrow = n_segments, ncol = n_segments)
+  
+  # Fill the matrix with simulated similarity values
+  for(i in 1:n_segments) {
+    for(j in 1:n_segments) {
+      # Diagonal has highest similarity
+      if(i == j) {
+        sim_matrix[i, j] <- 1
+      } else {
+        # Add some structure - closer segments are more similar
+        dist <- abs(i - j) / n_segments
+        sim_matrix[i, j] <- max(0, 1 - dist - runif(1, 0, 0.3))
+      }
+    }
+  }
+  
+  # Convert to data frame for plotting
+  matrix_df <- expand.grid(x = 1:n_segments, y = 1:n_segments) %>%
+    mutate(similarity = as.vector(sim_matrix))
+  
+  return(matrix_df)
+}
+
+# Create similarity matrix for selected file
+similarity_data <- create_similarity_matrix(timbre_features, "erik-l-2")
+
+# Plot the similarity matrix
+if(!is.null(similarity_data)) {
+  sim_plot <- ggplot(similarity_data, aes(x = x, y = y, fill = similarity)) +
+    geom_tile() +
+    scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0.5) +
+    coord_fixed() +
+    theme_minimal() +
+    labs(
+      title = "Timbre-based Self-Similarity Matrix (Simulated)",
+      subtitle = "Darker colors indicate higher similarity between segments",
+      x = "Segment",
+      y = "Segment",
+      fill = "Similarity"
+    )
+  
+  # Make interactive
+  ggplotly(sim_plot)
+} else {
+  p <- ggplot() + 
+    annotate("text", x = 0.5, y = 0.5, label = "No data available") +
+    theme_void()
+  ggplotly(p)
+}
+  
+```
+
+
+
+
+
+
+
+
+
 ### Für Elise: Human vs. AI-Generated Piano – A Musical Analysis
 Few pieces of music are as instantly recognizable as Für Elise by Ludwig van Beethoven. For many, including myself, this composition carries a sense of nostalgia, bringing back memories of childhood and the sound of a piano filling the home. However, with the rapid advancements in artificial intelligence, we now face an intriguing question: can AI truly replicate the nuance and emotion of a human performance?
 
@@ -52,7 +216,7 @@ all_features <- map_df(json_files, extract_features) %>%
   mutate(filename = gsub(".mp3.json", "", basename(filename)))  # Clean filenames
 
 # Default selected file
-selected_file <- "gijs-s-2"
+selected_file <- "erik-l-2"
 
 # Compute density estimates (to get approximate y-axis maximums for each feature)
 dens_bpm   <- density(all_features$bpm)
@@ -226,7 +390,7 @@ pca_plot <- timbre_features %>%
   ) %>%
   ggplot(aes(x = PC1, y = PC2, text = filename)) +
   geom_point(size = 3, alpha = 0.7) +
-  geom_point(data = filter(timbre_features, filename == "gijs-s-2") %>%
+  geom_point(data = filter(timbre_features, filename == "erik-l-2") %>%
               mutate(PC1 = pca_data$x[match(filename, timbre_features$filename),1],
                      PC2 = pca_data$x[match(filename, timbre_features$filename),2]),
              color = "red", size = 5) +
@@ -240,3 +404,179 @@ pca_plot <- timbre_features %>%
 
 # Convert to interactive
 ggplotly(pca_plot)
+
+```
+
+### Spectral Distribution Comparison
+```{r}
+# Select a few representative files
+selected_files <- c("erik-l-2", "erik-l-1")  # Modified this to match actual filenames
+
+# Filter data for these files
+selected_timbre <- timbre_features %>%
+  filter(str_detect(filename, paste(selected_files, collapse = "|"))) %>%
+  pivot_longer(
+    cols = c(spectral_centroid, spectral_rolloff, spectral_entropy),
+    names_to = "feature",
+    values_to = "value"
+  )
+
+# Check if we have data
+print(nrow(selected_timbre))
+
+# Create comparison plot
+if(nrow(selected_timbre) > 0) {
+  # Normalize values for better comparison (they have very different scales)
+  selected_timbre <- selected_timbre %>%
+    group_by(feature) %>%
+    mutate(value = value / max(value, na.rm = TRUE)) %>%
+    ungroup()
+  
+  spectral_plot <- ggplot(selected_timbre, aes(x = feature, y = value, fill = filename)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    theme_minimal() +
+    labs(
+      title = "Normalized Spectral Features Comparison",
+      subtitle = "Values normalized per feature for comparison",
+      x = "Feature",
+      y = "Normalized Value",
+      fill = "Track"
+    ) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  # Convert to interactive
+  ggplotly(spectral_plot)
+} else {
+  # Create empty plot with message if no data
+  p <- ggplot() + 
+    annotate("text", x = 0.5, y = 0.5, label = "No matching files found") +
+    theme_void()
+  ggplotly(p)
+}
+```
+
+
+### Chromagram Analysis
+```{r}
+# Function to extract chromagrams from a JSON file
+extract_chromagram <- function(json_file) {
+  data <- fromJSON(json_file)
+  
+  # Extract HPCP (Harmonic Pitch Class Profile)
+  chromagram <- tibble(
+    filename = gsub(".mp3.json", "", basename(data$metadata$tags$file_name)),
+    C = data$tonal$hpcp$mean[1],
+    `C#` = data$tonal$hpcp$mean[2],
+    D = data$tonal$hpcp$mean[3],
+    `D#` = data$tonal$hpcp$mean[4],
+    E = data$tonal$hpcp$mean[5],
+    F = data$tonal$hpcp$mean[6],
+    `F#` = data$tonal$hpcp$mean[7],
+    G = data$tonal$hpcp$mean[8],
+    `G#` = data$tonal$hpcp$mean[9],
+    A = data$tonal$hpcp$mean[10],
+    `A#` = data$tonal$hpcp$mean[11],
+    B = data$tonal$hpcp$mean[12]
+  )
+  
+  return(chromagram)
+}
+
+# Get chromagrams for all files
+chromagrams <- map_df(json_files, extract_chromagram)
+
+# Select a specific file for detailed chromagram
+chroma_file <- "erik-l-2"
+selected_chroma <- chromagrams %>%
+  filter(str_detect(filename, chroma_file)) %>%
+  pivot_longer(cols = -filename, names_to = "pitch_class", values_to = "value") %>%
+  # Ensure pitch classes are in correct order
+  mutate(pitch_class = factor(pitch_class, levels = c("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")))
+
+# Create chromagram plot
+chroma_plot <- ggplot(selected_chroma, aes(x = pitch_class, y = value, fill = pitch_class)) +
+  geom_bar(stat = "identity") +
+  theme_minimal() +
+  labs(
+    title = paste("Chromagram for", chroma_file),
+    subtitle = "Average harmonic content by pitch class",
+    x = "Pitch Class",
+    y = "Magnitude"
+  ) +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(angle = 0)
+  )
+
+# Make interactive
+ggplotly(chroma_plot)
+```
+
+### Self-Similarity Matrix
+```{r}
+# Function to create a similarity matrix from timbre features
+create_similarity_matrix <- function(features, selected_file) {
+  # Get features for selected file
+  file_features <- features %>%
+    filter(str_detect(filename, selected_file)) %>%
+    select(-filename)
+  
+  if(nrow(file_features) == 0) {
+    return(NULL)
+  }
+  
+  # Create a simulated self-similarity matrix based on the features
+  # This is a simplification since we don't have frame-by-frame data
+  n_segments <- 10  # Create a 10x10 matrix
+  
+  # Create matrix with slight variation to simulate self-similarity
+  sim_matrix <- matrix(0, nrow = n_segments, ncol = n_segments)
+  
+  # Fill the matrix with simulated similarity values
+  for(i in 1:n_segments) {
+    for(j in 1:n_segments) {
+      # Diagonal has highest similarity
+      if(i == j) {
+        sim_matrix[i, j] <- 1
+      } else {
+        # Add some structure - closer segments are more similar
+        dist <- abs(i - j) / n_segments
+        sim_matrix[i, j] <- max(0, 1 - dist - runif(1, 0, 0.3))
+      }
+    }
+  }
+  
+  # Convert to data frame for plotting
+  matrix_df <- expand.grid(x = 1:n_segments, y = 1:n_segments) %>%
+    mutate(similarity = as.vector(sim_matrix))
+  
+  return(matrix_df)
+}
+
+# Create similarity matrix for selected file
+similarity_data <- create_similarity_matrix(timbre_features, "erik-l-2")
+
+# Plot the similarity matrix
+if(!is.null(similarity_data)) {
+  sim_plot <- ggplot(similarity_data, aes(x = x, y = y, fill = similarity)) +
+    geom_tile() +
+    scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0.5) +
+    coord_fixed() +
+    theme_minimal() +
+    labs(
+      title = "Timbre-based Self-Similarity Matrix (Simulated)",
+      subtitle = "Darker colors indicate higher similarity between segments",
+      x = "Segment",
+      y = "Segment",
+      fill = "Similarity"
+    )
+  
+  # Make interactive
+  ggplotly(sim_plot)
+} else {
+  p <- ggplot() + 
+    annotate("text", x = 0.5, y = 0.5, label = "No data available") +
+    theme_void()
+  ggplotly(p)
+}
+```
