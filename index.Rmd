@@ -14,6 +14,13 @@ library(flexdashboard)
 library(plotly)
 library(jsonlite)
 library(tidyverse)
+# Install rjson if not already installed
+if (!requireNamespace("rjson", quietly = TRUE)) {
+  install.packages("rjson")
+}
+library(rjson)  # Add this line
+source("compmus.R")
+
 
 # Function to extract features
 extract_features <- function(json_file) {
@@ -30,553 +37,210 @@ extract_features <- function(json_file) {
     beats_count = data$rhythm$beats_count
   )
 }
+
+# Define the chord templates
+circshift <- function(v, n) {
+  if (n == 0) v else c(tail(v, n), head(v, -n))
+}
+
+#      C     C#    D     Eb    E     F     F#    G     Ab    A     Bb    B
+major_chord <-
+  c(   1,    0,    0,    0,    1,    0,    0,    1,    0,    0,    0,    0)
+minor_chord <-
+  c(   1,    0,    0,    1,    0,    0,    0,    1,    0,    0,    0,    0)
+seventh_chord <-
+  c(   1,    0,    0,    0,    1,    0,    0,    1,    0,    0,    1,    0)
+
+major_key <-
+  c(6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88)
+minor_key <-
+  c(6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17)
+
+chord_templates <-
+  tribble(
+    ~name, ~template,
+    "Gb:7", circshift(seventh_chord, 6),
+    "Gb:maj", circshift(major_chord, 6),
+    "Bb:min", circshift(minor_chord, 10),
+    "Db:maj", circshift(major_chord, 1),
+    "F:min", circshift(minor_chord, 5),
+    "Ab:7", circshift(seventh_chord, 8),
+    "Ab:maj", circshift(major_chord, 8),
+    "C:min", circshift(minor_chord, 0),
+    "Eb:7", circshift(seventh_chord, 3),
+    "Eb:maj", circshift(major_chord, 3),
+    "G:min", circshift(minor_chord, 7),
+    "Bb:7", circshift(seventh_chord, 10),
+    "Bb:maj", circshift(major_chord, 10),
+    "D:min", circshift(minor_chord, 2),
+    "F:7", circshift(seventh_chord, 5),
+    "F:maj", circshift(major_chord, 5),
+    "A:min", circshift(minor_chord, 9),
+    "C:7", circshift(seventh_chord, 0),
+    "C:maj", circshift(major_chord, 0),
+    "E:min", circshift(minor_chord, 4),
+    "G:7", circshift(seventh_chord, 7),
+    "G:maj", circshift(major_chord, 7),
+    "B:min", circshift(minor_chord, 11),
+    "D:7", circshift(seventh_chord, 2),
+    "D:maj", circshift(major_chord, 2),
+    "F#:min", circshift(minor_chord, 6),
+    "A:7", circshift(seventh_chord, 9),
+    "A:maj", circshift(major_chord, 9),
+    "C#:min", circshift(minor_chord, 1),
+    "E:7", circshift(seventh_chord, 4),
+    "E:maj", circshift(major_chord, 4),
+    "G#:min", circshift(minor_chord, 8),
+    "B:7", circshift(seventh_chord, 11),
+    "B:maj", circshift(major_chord, 11),
+    "D#:min", circshift(minor_chord, 3)
+  )
+
+key_templates <-
+  tribble(
+    ~name, ~template,
+    "Gb:maj", circshift(major_key, 6),
+    "Bb:min", circshift(minor_key, 10),
+    "Db:maj", circshift(major_key, 1),
+    "F:min", circshift(minor_key, 5),
+    "Ab:maj", circshift(major_key, 8),
+    "C:min", circshift(minor_key, 0),
+    "Eb:maj", circshift(major_key, 3),
+    "G:min", circshift(minor_key, 7),
+    "Bb:maj", circshift(major_key, 10),
+    "D:min", circshift(minor_key, 2),
+    "F:maj", circshift(major_key, 5),
+    "A:min", circshift(minor_key, 9),
+    "C:maj", circshift(major_key, 0),
+    "E:min", circshift(minor_key, 4),
+    "G:maj", circshift(major_key, 7),
+    "B:min", circshift(minor_key, 11),
+    "D:maj", circshift(major_key, 2),
+    "F#:min", circshift(minor_key, 6),
+    "A:maj", circshift(major_key, 9),
+    "C#:min", circshift(minor_key, 1),
+    "E:maj", circshift(major_key, 4),
+    "G#:min", circshift(minor_key, 8),
+    "B:maj", circshift(major_key, 11),
+    "D#:min", circshift(minor_key, 3)
+  )
 ```
 
+### Homework10
 
-### Homework 9
+
+Row {data-height=500}
+-----------------------------------------------------------------------
+
+
+```{r}
+"features/erik-l-2.json" |> 
+  compmus_chroma(norm = "euclidean") |> 
+  compmus_match_pitch_templates(
+    chord_templates,  # Using chord templates instead of key templates
+    norm = "euclidean",
+    distance = "cosine"
+  ) |>
+  ggplot(aes(x = time, y = name, fill = d)) + 
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +
+  labs(x = "Time (s)", y = "Chord", fill = NULL,
+       title = "Chordogram for erik-l-2 (Für Elise)",
+       subtitle = "Using standard chord templates") +
+  theme_classic()
+```
+
 Row {data-height=500}
 -----------------------------------------------------------------------
 ```{r}
-# First define the json_files variable
-json_files <- list.files("C:/Users/erikl/Downloads/compmus-corpus-2025/features", 
-                        pattern = "*.json", 
-                        full.names = TRUE)
-
-# Function to extract chromagrams from a JSON file
-extract_chromagram <- function(json_file) {
-  data <- fromJSON(json_file)
-  
-  # Extract HPCP (Harmonic Pitch Class Profile)
-  chromagram <- tibble(
-    filename = gsub(".mp3.json", "", basename(data$metadata$tags$file_name)),
-    C = data$tonal$hpcp$mean[1],
-    `C#` = data$tonal$hpcp$mean[2],
-    D = data$tonal$hpcp$mean[3],
-    `D#` = data$tonal$hpcp$mean[4],
-    E = data$tonal$hpcp$mean[5],
-    F = data$tonal$hpcp$mean[6],
-    `F#` = data$tonal$hpcp$mean[7],
-    G = data$tonal$hpcp$mean[8],
-    `G#` = data$tonal$hpcp$mean[9],
-    A = data$tonal$hpcp$mean[10],
-    `A#` = data$tonal$hpcp$mean[11],
-    B = data$tonal$hpcp$mean[12]
-  )
-  
-  return(chromagram)
-}
-
-# Get chromagrams for all files
-chromagrams <- map_df(json_files, extract_chromagram)
-
-# Select a specific file for detailed chromagram
-chroma_file <- "erik-l-2"
-selected_chroma <- chromagrams %>%
-  filter(str_detect(filename, chroma_file)) %>%
-  pivot_longer(cols = -filename, names_to = "pitch_class", values_to = "value") %>%
-  # Ensure pitch classes are in correct order
-  mutate(pitch_class = factor(pitch_class, levels = c("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")))
-
-# Create chromagram plot
-chroma_plot <- ggplot(selected_chroma, aes(x = pitch_class, y = value, fill = pitch_class)) +
-  geom_bar(stat = "identity") +
-  theme_minimal() +
-  labs(
-    title = paste("Chromagram for", chroma_file),
-    subtitle = "Average harmonic content by pitch class",
-    x = "Pitch Class",
-    y = "Magnitude"
-  ) +
-  theme(
-    legend.position = "none",
-    axis.text.x = element_text(angle = 0)
-  )
-
-# Make interactive
-ggplotly(chroma_plot)
+# Keygram for AI-generated piano (erik-l-1)
+"features/erik-l-1.json" |> 
+  compmus_chroma(norm = "manhattan") |> 
+  compmus_match_pitch_templates(
+    key_templates,
+    norm = "manhattan",
+    distance = "aitchison"
+  ) |>
+  ggplot(aes(x = time, y = name, fill = d)) + 
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +
+  labs(x = "Time (s)", y = "Key", fill = NULL,
+       title = "Keygram for erik-l-1 (AI-generated piano)",
+       subtitle = "Using Krumhansl-Kessler key profiles") +
+  theme_classic()
 ```
 
 Row {data-height=500}
 -----------------------------------------------------------------------
 ```{r}
-  # Function to extract timbre features
-extract_timbre_features <- function(json_file) {
-  data <- fromJSON(json_file)
-  
-  # Extract the timbral features we want
-  tibble(
-    filename = gsub(".mp3.json", "", basename(data$metadata$tags$file_name)),
-    # MFCC stats for timbre
-    mfcc1_mean = data$lowlevel$mfcc$mean[1],
-    mfcc2_mean = data$lowlevel$mfcc$mean[2],
-    mfcc3_mean = data$lowlevel$mfcc$mean[3],
-    # Spectral features
-    spectral_centroid = data$lowlevel$spectral_centroid$mean,
-    spectral_rolloff = data$lowlevel$spectral_rolloff$mean,
-    spectral_entropy = data$lowlevel$spectral_entropy$mean
-  )
-}
-
-# Get timbre features
-timbre_features <- map_df(json_files, extract_timbre_features)
-
-# Function to create a similarity matrix from timbre features
-create_similarity_matrix <- function(features, selected_file) {
-  # Get features for selected file
-  file_features <- features %>%
-    filter(str_detect(filename, selected_file)) %>%
-    select(-filename)
-  
-  if(nrow(file_features) == 0) {
-    return(NULL)
-  }
-  
-  # Create a simulated self-similarity matrix based on the features
-  # This is a simplification since we don't have frame-by-frame data
-  n_segments <- 10  # Create a 10x10 matrix
-  
-  # Create matrix with slight variation to simulate self-similarity
-  sim_matrix <- matrix(0, nrow = n_segments, ncol = n_segments)
-  
-  # Fill the matrix with simulated similarity values
-  for(i in 1:n_segments) {
-    for(j in 1:n_segments) {
-      # Diagonal has highest similarity
-      if(i == j) {
-        sim_matrix[i, j] <- 1
-      } else {
-        # Add some structure - closer segments are more similar
-        dist <- abs(i - j) / n_segments
-        sim_matrix[i, j] <- max(0, 1 - dist - runif(1, 0, 0.3))
-      }
-    }
-  }
-  
-  # Convert to data frame for plotting
-  matrix_df <- expand.grid(x = 1:n_segments, y = 1:n_segments) %>%
-    mutate(similarity = as.vector(sim_matrix))
-  
-  return(matrix_df)
-}
-
-# Create similarity matrix for selected file
-similarity_data <- create_similarity_matrix(timbre_features, "erik-l-2")
-
-# Plot the similarity matrix
-if(!is.null(similarity_data)) {
-  sim_plot <- ggplot(similarity_data, aes(x = x, y = y, fill = similarity)) +
-    geom_tile() +
-    scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0.5) +
-    coord_fixed() +
-    theme_minimal() +
-    labs(
-      title = "Timbre-based Self-Similarity Matrix (Simulated)",
-      subtitle = "Darker colors indicate higher similarity between segments",
-      x = "Segment",
-      y = "Segment",
-      fill = "Similarity"
-    )
-  
-  # Make interactive
-  ggplotly(sim_plot)
-} else {
-  p <- ggplot() + 
-    annotate("text", x = 0.5, y = 0.5, label = "No data available") +
-    theme_void()
-  ggplotly(p)
-}
-  
+# Chordogram for AI-generated piano (erik-l-1)
+"features/erik-l-1.json" |> 
+  compmus_chroma(norm = "euclidean") |> 
+  compmus_match_pitch_templates(
+    chord_templates,
+    norm = "euclidean",
+    distance = "cosine"
+  ) |>
+  ggplot(aes(x = time, y = name, fill = d)) + 
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +
+  labs(x = "Time (s)", y = "Chord", fill = NULL,
+       title = "Chordogram for erik-l-1 (AI-generated piano)",
+       subtitle = "Using standard chord templates") +
+  theme_classic()
 ```
 
-
-
-
-
-
-
-
-
-### Für Elise: Human vs. AI-Generated Piano – A Musical Analysis
-Few pieces of music are as instantly recognizable as Für Elise by Ludwig van Beethoven. For many, including myself, this composition carries a sense of nostalgia, bringing back memories of childhood and the sound of a piano filling the home. However, with the rapid advancements in artificial intelligence, we now face an intriguing question: can AI truly replicate the nuance and emotion of a human performance?
-
-In this analysis, I compare a real human performance of Für Elise with an AI-generated attempt using Jen, a tool designed to create music based on text prompts. My initial attempt to generate the piece using the prompt "Piano, Bagatelle nr. 25 in A minor, Für Elise, Beethoven" resulted in a far-from-accurate rendition, raising important questions about the current state of AI music generation.
-
-By examining aspects such as melody, timing, expression, and overall structure, this analysis will explore the differences between human musicianship and AI-generated music.
-
-***
-
-Visualisations on the next page!
-
-### Musical Feature Analysis
+Row {data-height=500}
+-----------------------------------------------------------------------
 ```{r}
-# Load JSON files and extract features
-json_files <- list.files("C:/Users/erikl/Downloads/compmus-corpus-2025/features", 
-                         pattern = "*.json", full.names = TRUE)
-all_features <- map_df(json_files, extract_features) %>%
-  mutate(filename = gsub(".mp3.json", "", basename(filename)))  # Clean filenames
+# Temperley's key profiles
+temperley_major_key <- c(5.0, 2.0, 3.5, 2.0, 4.5, 4.0, 2.0, 4.5, 2.0, 3.5, 1.5, 4.0)
+temperley_minor_key <- c(5.0, 2.0, 3.5, 4.5, 2.0, 4.0, 2.0, 4.5, 3.5, 2.0, 1.5, 4.0)
 
-# Default selected file
-selected_file <- "erik-l-2"
-
-# Compute density estimates (to get approximate y-axis maximums for each feature)
-dens_bpm   <- density(all_features$bpm)
-max_bpm    <- max(dens_bpm$y)
-dens_dance <- density(all_features$danceability)
-max_dance  <- max(dens_dance$y)
-dens_onset <- density(all_features$onset_rate)
-max_onset  <- max(dens_onset$y)
-
-# Function to create density plots WITHOUT red lines
-create_density_plot <- function(data, feature, title, xlabel, fill_color) {
-  ggplot(data) +
-    geom_density(aes_string(x = feature), fill = fill_color, alpha = 0.6) +
-    theme_minimal() +
-    labs(title = title, x = xlabel, y = "Density") +
-    theme(plot.title = element_text(size = 14, face = "bold"))
-}
-
-# Create density plots
-plot_bpm   <- create_density_plot(all_features, "bpm", "Beats Per Minute (BPM)", "BPM", "lightblue")
-plot_dance <- create_density_plot(all_features, "danceability", "Danceability Score (0-1)", "Danceability", "lightgreen")
-plot_onset <- create_density_plot(all_features, "onset_rate", "Onset Rate (Events per Second)", "Onset Rate", "lightsalmon")
-
-# Convert to Plotly objects
-p1 <- ggplotly(plot_bpm)
-p2 <- ggplotly(plot_dance)
-p3 <- ggplotly(plot_onset)
-
-# Combine plots into a 3-row subplot
-fig <- subplot(p1, p2, p3, nrows = 3, shareX = FALSE, heights = c(0.33, 0.33, 0.33))
-
-# Get default red line positions
-default_bpm   <- all_features$bpm[all_features$filename == selected_file]
-default_dance <- all_features$danceability[all_features$filename == selected_file]
-default_onset <- all_features$onset_rate[all_features$filename == selected_file]
-
-# Add red lines as shapes using each subplot’s axis reference
-fig <- fig %>% layout(
-  shapes = list(
-    list(  # BPM subplot (first row)
-      type = "line",
-      x0 = default_bpm, x1 = default_bpm,
-      y0 = 0, y1 = max_bpm,
-      xref = "x1", yref = "y1",
-      line = list(color = "red", width = 2)
-    ),
-    list(  # Danceability subplot (second row)
-      type = "line",
-      x0 = default_dance, x1 = default_dance,
-      y0 = 0, y1 = max_dance,
-      xref = "x2", yref = "y2",
-      line = list(color = "red", width = 2)
-    ),
-    list(  # Onset Rate subplot (third row)
-      type = "line",
-      x0 = default_onset, x1 = default_onset,
-      y0 = 0, y1 = max_onset,
-      xref = "x3", yref = "y3",
-      line = list(color = "red", width = 2)
-    )
-  ),
-  title = paste("Audio Feature Distributions<br><sup>Selected track:", selected_file, "</sup>")
-)
-
-# Unique filenames for dropdown menu
-filenames <- sort(unique(all_features$filename))
-
-# Create dropdown buttons that update the red line positions and the title.
-dropdown_buttons <- lapply(filenames, function(fname) {
-  bpm_val   <- all_features$bpm[all_features$filename == fname]
-  dance_val <- all_features$danceability[all_features$filename == fname]
-  onset_val <- all_features$onset_rate[all_features$filename == fname]
-  
-  list(
-    method = "relayout",
-    args = list(list(
-      shapes = list(
-        list(  # BPM red line
-          type = "line",
-          x0 = bpm_val, x1 = bpm_val,
-          y0 = 0, y1 = max_bpm,
-          xref = "x1", yref = "y1",
-          line = list(color = "red", width = 2)
-        ),
-        list(  # Danceability red line
-          type = "line",
-          x0 = dance_val, x1 = dance_val,
-          y0 = 0, y1 = max_dance,
-          xref = "x2", yref = "y2",
-          line = list(color = "red", width = 2)
-        ),
-        list(  # Onset Rate red line
-          type = "line",
-          x0 = onset_val, x1 = onset_val,
-          y0 = 0, y1 = max_onset,
-          xref = "x3", yref = "y3",
-          line = list(color = "red", width = 2)
-        )
-      ),
-      title = paste("Audio Feature Distributions<br><sup>Selected track:", fname, "</sup>")
-    )),
-    label = fname
+# Create Temperley key templates
+temperley_key_templates <-
+  tribble(
+    ~name, ~template,
+    "Gb:maj", circshift(temperley_major_key, 6),
+    "Bb:min", circshift(temperley_minor_key, 10),
+    "Db:maj", circshift(temperley_major_key, 1),
+    "F:min", circshift(temperley_minor_key, 5),
+    "Ab:maj", circshift(temperley_major_key, 8),
+    "C:min", circshift(temperley_minor_key, 0),
+    "Eb:maj", circshift(temperley_major_key, 3),
+    "G:min", circshift(temperley_minor_key, 7),
+    "Bb:maj", circshift(temperley_major_key, 10),
+    "D:min", circshift(temperley_minor_key, 2),
+    "F:maj", circshift(temperley_major_key, 5),
+    "A:min", circshift(temperley_minor_key, 9),
+    "C:maj", circshift(temperley_major_key, 0),
+    "E:min", circshift(temperley_minor_key, 4),
+    "G:maj", circshift(temperley_major_key, 7),
+    "B:min", circshift(temperley_minor_key, 11),
+    "D:maj", circshift(temperley_major_key, 2),
+    "F#:min", circshift(temperley_minor_key, 6),
+    "A:maj", circshift(temperley_major_key, 9),
+    "C#:min", circshift(temperley_minor_key, 1),
+    "E:maj", circshift(temperley_major_key, 4),
+    "G#:min", circshift(temperley_minor_key, 8),
+    "B:maj", circshift(temperley_major_key, 11),
+    "D#:min", circshift(temperley_minor_key, 3)
   )
-})
 
-# Add the dropdown menu
-fig <- fig %>% layout(
-  updatemenus = list(
-    list(
-      type = "dropdown",
-      active = which(filenames == selected_file) - 1,  # 0-indexed
-      buttons = dropdown_buttons,
-      direction = "down",
-      showactive = TRUE,
-      x = 0.1,
-      y = 1.15,
-      xanchor = "left"
-    )
-  )
-)
-
-fig
+# Create keygram with Temperley's profiles for Für Elise
+"features/erik-l-2.json" |> 
+  compmus_chroma(norm = "manhattan") |> 
+  compmus_match_pitch_templates(
+    temperley_key_templates,
+    norm = "manhattan",
+    distance = "aitchison"
+  ) |>
+  ggplot(aes(x = time, y = name, fill = d)) + 
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +
+  labs(x = "Time (s)", y = "Key", fill = NULL,
+       title = "Keygram using Temperley's Key Profiles",
+       subtitle = "erik-l-2 (Für Elise)") +
+  theme_classic()
 ```
 
-***
-
-The AI generated piano song scores relative low on all metrics while Für Elise has a relatively high bpm, low danceability and average onset rate. The fact that both piano songs have a low danceability isn't surprising, and it's great to see that Essentia is able to capture this feature well! 
-
-### Conclusion 
-### Spectral Features Analysis
-```{r}
-# Function to extract spectral/timbre features
-extract_timbre_features <- function(json_file) {
-  data <- fromJSON(json_file)
-  
-  # Extract the timbral features we want
-  tibble(
-    filename = gsub(".mp3.json", "", basename(data$metadata$tags$file_name)),
-    # MFCC stats for timbre
-    mfcc1_mean = data$lowlevel$mfcc$mean[1],
-    mfcc2_mean = data$lowlevel$mfcc$mean[2],
-    mfcc3_mean = data$lowlevel$mfcc$mean[3],
-    # Spectral features
-    spectral_centroid = data$lowlevel$spectral_centroid$mean,
-    spectral_rolloff = data$lowlevel$spectral_rolloff$mean,
-    spectral_entropy = data$lowlevel$spectral_entropy$mean,
-    # Spectral contrast
-    spectral_contrast1 = data$lowlevel$spectral_contrast_coeffs$mean[1],
-    spectral_contrast2 = data$lowlevel$spectral_contrast_coeffs$mean[2],
-    spectral_contrast3 = data$lowlevel$spectral_contrast_coeffs$mean[3]
-  )
-}
-
-# Get all JSON files and extract features
-json_files <- list.files("C:/Users/erikl/Downloads/compmus-corpus-2025/features", 
-                        pattern = "*.json", 
-                        full.names = TRUE)
-timbre_features <- map_df(json_files, extract_timbre_features)
-
-# Create PCA of timbral features to compare songs
-pca_data <- timbre_features %>%
-  select(-filename) %>%
-  scale() %>%
-  prcomp()
-
-# Create PCA plot
-pca_plot <- timbre_features %>%
-  mutate(
-    PC1 = pca_data$x[,1],
-    PC2 = pca_data$x[,2]
-  ) %>%
-  ggplot(aes(x = PC1, y = PC2, text = filename)) +
-  geom_point(size = 3, alpha = 0.7) +
-  geom_point(data = filter(timbre_features, filename == "erik-l-2") %>%
-              mutate(PC1 = pca_data$x[match(filename, timbre_features$filename),1],
-                     PC2 = pca_data$x[match(filename, timbre_features$filename),2]),
-             color = "red", size = 5) +
-  theme_minimal() +
-  labs(
-    title = "Timbre Features PCA",
-    subtitle = "Principal components of spectral features",
-    x = "PC1 (primary timbre dimension)",
-    y = "PC2 (secondary timbre dimension)"
-  )
-
-# Convert to interactive
-ggplotly(pca_plot)
-
-```
-
-### Spectral Distribution Comparison
-```{r}
-# Select a few representative files
-selected_files <- c("erik-l-2", "erik-l-1")  # Modified this to match actual filenames
-
-# Filter data for these files
-selected_timbre <- timbre_features %>%
-  filter(str_detect(filename, paste(selected_files, collapse = "|"))) %>%
-  pivot_longer(
-    cols = c(spectral_centroid, spectral_rolloff, spectral_entropy),
-    names_to = "feature",
-    values_to = "value"
-  )
-
-# Check if we have data
-print(nrow(selected_timbre))
-
-# Create comparison plot
-if(nrow(selected_timbre) > 0) {
-  # Normalize values for better comparison (they have very different scales)
-  selected_timbre <- selected_timbre %>%
-    group_by(feature) %>%
-    mutate(value = value / max(value, na.rm = TRUE)) %>%
-    ungroup()
-  
-  spectral_plot <- ggplot(selected_timbre, aes(x = feature, y = value, fill = filename)) +
-    geom_bar(stat = "identity", position = "dodge") +
-    theme_minimal() +
-    labs(
-      title = "Normalized Spectral Features Comparison",
-      subtitle = "Values normalized per feature for comparison",
-      x = "Feature",
-      y = "Normalized Value",
-      fill = "Track"
-    ) +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
-  
-  # Convert to interactive
-  ggplotly(spectral_plot)
-} else {
-  # Create empty plot with message if no data
-  p <- ggplot() + 
-    annotate("text", x = 0.5, y = 0.5, label = "No matching files found") +
-    theme_void()
-  ggplotly(p)
-}
-```
-
-
-### Chromagram Analysis
-```{r}
-# Function to extract chromagrams from a JSON file
-extract_chromagram <- function(json_file) {
-  data <- fromJSON(json_file)
-  
-  # Extract HPCP (Harmonic Pitch Class Profile)
-  chromagram <- tibble(
-    filename = gsub(".mp3.json", "", basename(data$metadata$tags$file_name)),
-    C = data$tonal$hpcp$mean[1],
-    `C#` = data$tonal$hpcp$mean[2],
-    D = data$tonal$hpcp$mean[3],
-    `D#` = data$tonal$hpcp$mean[4],
-    E = data$tonal$hpcp$mean[5],
-    F = data$tonal$hpcp$mean[6],
-    `F#` = data$tonal$hpcp$mean[7],
-    G = data$tonal$hpcp$mean[8],
-    `G#` = data$tonal$hpcp$mean[9],
-    A = data$tonal$hpcp$mean[10],
-    `A#` = data$tonal$hpcp$mean[11],
-    B = data$tonal$hpcp$mean[12]
-  )
-  
-  return(chromagram)
-}
-
-# Get chromagrams for all files
-chromagrams <- map_df(json_files, extract_chromagram)
-
-# Select a specific file for detailed chromagram
-chroma_file <- "erik-l-2"
-selected_chroma <- chromagrams %>%
-  filter(str_detect(filename, chroma_file)) %>%
-  pivot_longer(cols = -filename, names_to = "pitch_class", values_to = "value") %>%
-  # Ensure pitch classes are in correct order
-  mutate(pitch_class = factor(pitch_class, levels = c("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")))
-
-# Create chromagram plot
-chroma_plot <- ggplot(selected_chroma, aes(x = pitch_class, y = value, fill = pitch_class)) +
-  geom_bar(stat = "identity") +
-  theme_minimal() +
-  labs(
-    title = paste("Chromagram for", chroma_file),
-    subtitle = "Average harmonic content by pitch class",
-    x = "Pitch Class",
-    y = "Magnitude"
-  ) +
-  theme(
-    legend.position = "none",
-    axis.text.x = element_text(angle = 0)
-  )
-
-# Make interactive
-ggplotly(chroma_plot)
-```
-
-### Self-Similarity Matrix
-```{r}
-# Function to create a similarity matrix from timbre features
-create_similarity_matrix <- function(features, selected_file) {
-  # Get features for selected file
-  file_features <- features %>%
-    filter(str_detect(filename, selected_file)) %>%
-    select(-filename)
-  
-  if(nrow(file_features) == 0) {
-    return(NULL)
-  }
-  
-  # Create a simulated self-similarity matrix based on the features
-  # This is a simplification since we don't have frame-by-frame data
-  n_segments <- 10  # Create a 10x10 matrix
-  
-  # Create matrix with slight variation to simulate self-similarity
-  sim_matrix <- matrix(0, nrow = n_segments, ncol = n_segments)
-  
-  # Fill the matrix with simulated similarity values
-  for(i in 1:n_segments) {
-    for(j in 1:n_segments) {
-      # Diagonal has highest similarity
-      if(i == j) {
-        sim_matrix[i, j] <- 1
-      } else {
-        # Add some structure - closer segments are more similar
-        dist <- abs(i - j) / n_segments
-        sim_matrix[i, j] <- max(0, 1 - dist - runif(1, 0, 0.3))
-      }
-    }
-  }
-  
-  # Convert to data frame for plotting
-  matrix_df <- expand.grid(x = 1:n_segments, y = 1:n_segments) %>%
-    mutate(similarity = as.vector(sim_matrix))
-  
-  return(matrix_df)
-}
-
-# Create similarity matrix for selected file
-similarity_data <- create_similarity_matrix(timbre_features, "erik-l-2")
-
-# Plot the similarity matrix
-if(!is.null(similarity_data)) {
-  sim_plot <- ggplot(similarity_data, aes(x = x, y = y, fill = similarity)) +
-    geom_tile() +
-    scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0.5) +
-    coord_fixed() +
-    theme_minimal() +
-    labs(
-      title = "Timbre-based Self-Similarity Matrix (Simulated)",
-      subtitle = "Darker colors indicate higher similarity between segments",
-      x = "Segment",
-      y = "Segment",
-      fill = "Similarity"
-    )
-  
-  # Make interactive
-  ggplotly(sim_plot)
-} else {
-  p <- ggplot() + 
-    annotate("text", x = 0.5, y = 0.5, label = "No data available") +
-    theme_void()
-  ggplotly(p)
-}
-```
