@@ -1,0 +1,79 @@
+### Homework 9
+
+Row {data-height=500}
+-----------------------------------------------------------------------
+
+```{r}
+"features/erik-l-2.json" |>  # Use your actual file from the corpus
+  compmus_chroma(norm = "manhattan") |>  # Try different norms
+  ggplot(aes(x = time, y = pc, fill = value)) + 
+  geom_raster() +
+  scale_y_continuous(
+    breaks = 0:11,
+    minor_breaks = NULL,
+    labels = c(
+                "C", "C#|Db", "D", "D#|Eb",
+                "E", "F", "F#|Gb", "G",
+                "G#|Ab", "A", "A#|Bb", "B"
+              )
+  ) +
+  scale_fill_viridis_c(guide = "none") +
+  labs(x = "Time (s)", y = NULL, fill = NULL, 
+       title = "Chromagram for erik-l-2",
+       subtitle = "Harmonic content over time") +
+  theme_classic()
+```
+
+Row {data-height=500}
+-----------------------------------------------------------------------
+```{r}
+"features/erik-l-2.json" |>  # Use your actual file
+  compmus_mfccs(norm = "euclidean") |>  # Try different norms
+  ggplot(aes(x = time, y = mfcc, fill = value)) + 
+  geom_raster() +
+  scale_y_continuous(
+    breaks = 0:12,
+    minor_breaks = NULL,
+  ) +
+  scale_fill_viridis_c(guide = "none") +
+  labs(x = "Time (s)", y = "Coefficient Number", fill = NULL,
+       title = "Cepstrogram for erik-l-2",
+       subtitle = "Timbre features over time") +
+  theme_classic()
+```
+
+Row {data-height=500}
+-----------------------------------------------------------------------
+```{r}
+"features/erik-l-2.json" |>
+  compmus_chroma(norm = "manhattan") |>
+  compmus_self_similarity(
+    feature = pc,
+    distance = "aitchison"  # Try different distances
+  ) |>   
+  ggplot(aes(x = xtime, y = ytime, fill = d)) + 
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +
+  labs(x = "Time (s)", y = "Time (s)", fill = NULL,
+       title = "Chroma-based Self-Similarity Matrix",
+       subtitle = "Comparing harmonic content across time points") +
+  theme_classic()
+```
+
+Row {data-height=500}
+-----------------------------------------------------------------------
+```{r}
+"features/erik-l-2.json" |>
+  compmus_mfccs(norm = "euclidean") |>
+  compmus_self_similarity(
+    feature = mfcc,
+    distance = "euclidean"
+  ) |>   
+  ggplot(aes(x = xtime, y = ytime, fill = d)) + 
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +
+  labs(x = "Time (s)", y = "Time (s)", fill = NULL,
+       title = "Timbre-based Self-Similarity Matrix",
+       subtitle = "Comparing timbre features across time points") +
+  theme_classic()
+```

@@ -1,0 +1,42 @@
+Column {data-width=600}
+-----------------------------------------------------------------------
+
+### Feature Comparison
+
+```{r}
+# You can include more complex analysis here
+features_df <- bind_rows(
+  extract_features("features/erik-l-1.json") %>% mutate(source = "AI Piano"),
+  extract_features("features/erik-l-2.json") %>% mutate(source = "Für Elise")
+)
+
+# Create a comparison plot
+ggplot(features_df, aes(x = source, y = danceability, fill = source)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Danceability Comparison", x = NULL, y = "Danceability Score") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Paired")
+```
+
+Column {data-width=400}
+-----------------------------------------------------------------------
+
+### Correlation Analysis
+
+```{r}
+# Example correlation analysis
+corr_plot <- features_df %>%
+  select(bpm, danceability, loudness, onset_rate) %>%
+  cor() %>%
+  as.data.frame() %>%
+  rownames_to_column("feature1") %>%
+  pivot_longer(-feature1, names_to = "feature2", values_to = "correlation") %>%
+  ggplot(aes(x = feature1, y = feature2, fill = correlation)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0) +
+  labs(title = "Feature Correlation Matrix") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+corr_plot
+```

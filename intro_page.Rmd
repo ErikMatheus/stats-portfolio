@@ -1,0 +1,45 @@
+Column {.tabset .tabset-fade data-width=500}
+-----------------------------------------------------------------------
+
+### Chordogram - Für Elise
+
+```{r}
+create_chordogram(
+  "features/erik-l-2.json", 
+  "Chordogram for erik-l-2 (Für Elise)",
+  "Using standard chord templates"
+)
+```
+
+### Keygram - AI Piano
+
+```{r}
+create_keygram(
+  "features/erik-l-1.json", 
+  "Keygram for erik-l-1 (AI-generated piano)",
+  "Using Krumhansl-Kessler key profiles"
+)
+```
+
+Column {.tabset .tabset-fade data-width=500}
+-----------------------------------------------------------------------
+
+### Chordogram - AI Piano
+
+```{r}
+create_chordogram(
+  "features/erik-l-1.json", 
+  "Chordogram for erik-l-1 (AI-generated piano)",
+  "Using standard chord templates"
+)
+```
+
+### Temperley Analysis
+
+```{r}
+create_temperley_keygram(
+  "features/erik-l-2.json",
+  "Keygram using Temperley's Key Profiles",
+  "erik-l-2 (Für Elise)"
+)
+```

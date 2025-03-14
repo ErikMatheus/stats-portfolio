@@ -1,0 +1,11 @@
+### Für Elise: Human vs. AI-Generated Piano – A Musical Analysis
+
+Few pieces of music are as instantly recognizable as Für Elise by Ludwig van Beethoven. For many, including myself, this composition carries a sense of nostalgia, bringing back memories of childhood and the sound of a piano filling the home. However, with the rapid advancements in artificial intelligence, we now face an intriguing question: can AI truly replicate the nuance and emotion of a human performance?
+
+In this analysis, I compare a real human performance of Für Elise with an AI-generated attempt using Jen, a tool designed to create music based on text prompts. My initial attempt to generate the piece using the prompt "Piano, Bagatelle nr. 25 in A minor, Für Elise, Beethoven" resulted in a far-from-accurate rendition, raising important questions about the current state of AI music generation.
+
+By examining aspects such as melody, timing, expression, and overall structure, this analysis will explore the differences between human musicianship and AI-generated music.
+
+***
+
+Visualisations on the next page!

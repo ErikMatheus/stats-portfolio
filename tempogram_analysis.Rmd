@@ -1,0 +1,125 @@
+### Tempogram Analysis
+
+Row {data-height=350}
+-----------------------------------------------------------------------
+
+### Energy Novelty Function
+
+```{r}
+"features/erik-l-2.json" |>
+  compmus_energy_novelty() |> 
+  ggplot(aes(t, novelty)) +
+  geom_line() +
+  theme_minimal() +
+  labs(x = "Time (s)", y = "Energy Novelty",
+       title = "Energy Novelty for Für Elise (Human Performance)",
+       subtitle = "Peaks correspond to sudden changes in energy")
+```
+
+### Spectral Novelty Function
+
+```{r}
+"features/erik-l-2.json" |>
+  compmus_spectral_novelty() |> 
+  ggplot(aes(t, novelty)) +
+  geom_line() +
+  theme_minimal() +
+  labs(x = "Time (s)", y = "Spectral Novelty",
+       title = "Spectral Novelty for Für Elise (Human Performance)",
+       subtitle = "Peaks correspond to sudden changes in spectral content")
+```
+
+Row {data-height=350}
+-----------------------------------------------------------------------
+
+### AI-generated Piano Energy Novelty
+
+```{r}
+"features/erik-l-1.json" |>
+  compmus_energy_novelty() |> 
+  ggplot(aes(t, novelty)) +
+  geom_line() +
+  theme_minimal() +
+  labs(x = "Time (s)", y = "Energy Novelty",
+       title = "Energy Novelty for AI-generated Piano",
+       subtitle = "Peaks correspond to sudden changes in energy")
+```
+
+### AI-generated Piano Spectral Novelty
+
+```{r}
+"features/erik-l-1.json" |>
+  compmus_spectral_novelty() |> 
+  ggplot(aes(t, novelty)) +
+  geom_line() +
+  theme_minimal() +
+  labs(x = "Time (s)", y = "Spectral Novelty",
+       title = "Spectral Novelty for AI-generated Piano",
+       subtitle = "Peaks correspond to sudden changes in spectral content")
+```
+
+Row {data-height=400}
+-----------------------------------------------------------------------
+
+### Regular Tempogram (Human Performance)
+
+```{r}
+# Regular tempogram for Für Elise
+"features/erik-l-2.json" |>
+  compmus_tempogram(window_size = 8, hop_size = 1, cyclic = FALSE) |>
+  ggplot(aes(x = time, y = bpm, fill = power)) +
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +
+  labs(x = "Time (s)", y = "Tempo (BPM)",
+       title = "Tempogram for Für Elise (Human Performance)",
+       subtitle = "Window size: 8 seconds") +
+  theme_classic()
+```
+
+### Cyclic Tempogram (Human Performance)
+
+```{r}
+# Cyclic tempogram for Für Elise
+"features/erik-l-2.json" |>
+  compmus_tempogram(window_size = 8, hop_size = 1, cyclic = TRUE) |>
+  ggplot(aes(x = time, y = bpm, fill = power)) +
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +
+  labs(x = "Time (s)", y = "Tempo (BPM)",
+       title = "Cyclic Tempogram for Für Elise (Human Performance)",
+       subtitle = "Window size: 8 seconds, Cyclic representation") +
+  theme_classic()
+```
+
+Row {data-height=400}
+-----------------------------------------------------------------------
+
+### Regular Tempogram (AI-generated Piano)
+
+```{r}
+# Regular tempogram for AI-generated piano
+"features/erik-l-1.json" |>
+  compmus_tempogram(window_size = 8, hop_size = 1, cyclic = FALSE) |>
+  ggplot(aes(x = time, y = bpm, fill = power)) +
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +
+  labs(x = "Time (s)", y = "Tempo (BPM)",
+       title = "Tempogram for AI-generated Piano",
+       subtitle = "Window size: 8 seconds") +
+  theme_classic()
+```
+
+### Cyclic Tempogram (AI-generated Piano)
+
+```{r}
+# Cyclic tempogram for AI-generated piano
+"features/erik-l-1.json" |>
+  compmus_tempogram(window_size = 8, hop_size = 1, cyclic = TRUE) |>
+  ggplot(aes(x = time, y = bpm, fill = power)) +
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +
+  labs(x = "Time (s)", y = "Tempo (BPM)",
+       title = "Cyclic Tempogram for AI-generated Piano",
+       subtitle = "Window size: 8 seconds, Cyclic representation") +
+  theme_classic()
+```
