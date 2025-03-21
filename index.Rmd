@@ -32,6 +32,13 @@ if (!requireNamespace("signal", quietly = TRUE)) {
 }
 ```
 
+Homework 12 {data-icon="fa-robo"}
+=======================================================================
+
+```{r child="ml_analysis.Rmd"}
+```
+
+
 Homework 11 {data-icon="fa-wave-square"}
 =======================================================================
 

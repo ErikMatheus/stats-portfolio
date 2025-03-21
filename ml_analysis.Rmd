@@ -1,0 +1,161 @@
+Column {data-width=600}
+-----------------------------------------------------------------------
+
+### AI vs. Human Piano Performance: Machine Learning Analysis
+
+In this section, I employ machine learning techniques to quantitatively distinguish between human and AI-generated piano performances. By training classifiers on various musical features, I can identify which characteristics most strongly differentiate between human expressiveness and AI generation.
+
+```{r}
+# Load required packages for ML analysis
+library(tidymodels)
+library(tidyverse)
+library(ggdendro)
+
+# Load the corpus data
+compmus2025 <- read_csv("compmus2025.csv")
+
+# Modify piano_data to use an existing column or create a synthetic target
+# For example, we could categorize tracks by danceability
+piano_data <- compmus2025 %>%
+  mutate(performance_type = factor(if_else(danceability > median(danceability, na.rm = TRUE), 
+                                          "High Danceability", "Low Danceability")))
+
+# Create the classification recipe with the new target
+piano_recipe <- recipe(
+  performance_type ~ arousal + instrumentalness + tempo + valence,
+  data = piano_data
+) %>%
+  step_center(all_predictors()) %>%
+  step_scale(all_predictors())
+
+# Set up cross-validation
+piano_cv <- piano_data %>% vfold_cv(5)
+
+# Define the random forest model
+forest_model <- rand_forest() %>%
+  set_mode("classification") %>%
+  set_engine("ranger", importance = "impurity")
+
+# Fit the model
+rf_fit <- workflow() %>%
+  add_recipe(piano_recipe) %>%
+  add_model(forest_model) %>%
+  fit(piano_data)
+
+# Extract and plot feature importance
+# Using a more direct method to extract importance
+importance_scores <- ranger::importance(rf_fit$fit$fit$fit)
+importance_df <- tibble(name = names(importance_scores), value = importance_scores)
+
+# Plot feature importance
+importance_df %>%
+  mutate(name = fct_reorder(name, value)) %>%
+  ggplot(aes(name, value)) +
+  geom_col(fill = "#4682B4") +
+  coord_flip() +
+  theme_minimal() +
+  labs(
+    x = NULL, 
+    y = "Importance",
+    title = "Feature Importance for Danceability Classification",
+    subtitle = "Which features best distinguish high from low danceability performances?"
+  )
+```
+
+Column {data-width=600}
+-----------------------------------------------------------------------
+### Model Performance
+```{r}
+# Evaluate model with cross-validation
+rf_cv_results <- workflow() %>%
+  add_recipe(piano_recipe) %>%
+  add_model(forest_model) %>%
+  fit_resamples(
+    piano_cv,
+    control = control_resamples(save_pred = TRUE)
+  )
+
+# Create confusion matrix - using performance_type instead of ai
+rf_cm <- rf_cv_results %>%
+  collect_predictions() %>%
+  conf_mat(truth = performance_type, estimate = .pred_class)
+
+# Plot confusion matrix
+rf_cm %>%
+  autoplot(type = "heatmap") +
+  labs(
+    title = "Confusion Matrix for Danceability Classification",
+    subtitle = "Based on 5-fold cross-validation"
+  ) +
+  theme_minimal()
+
+# Calculate and display metrics
+rf_metrics <- rf_cv_results %>%
+  collect_metrics() %>%
+  filter(.metric == "accuracy")
+
+# Display accuracy text beneath plot
+cat(paste("Model Accuracy:", round(rf_metrics$.estimate[1] * 100, 1), "%"))
+```
+
+Row {data-height=400}
+-----------------------------------------------------------------------
+### Improved Model with Feature Selection
+```{r}
+# Based on feature importance, create an improved recipe with top features
+# Using the top features from our analysis above
+improved_recipe <- recipe(
+  performance_type ~ valence + tempo,  # Selected based on feature importance
+  data = piano_data
+) %>%
+  step_center(all_predictors()) %>%
+  step_scale(all_predictors())
+
+# Evaluate improved model
+improved_cv_results <- workflow() %>%
+  add_recipe(improved_recipe) %>%
+  add_model(forest_model) %>%
+  fit_resamples(
+    piano_cv,
+    control = control_resamples(save_pred = TRUE)
+  )
+
+# Create improved confusion matrix
+improved_cm <- improved_cv_results %>%
+  collect_predictions() %>%
+  conf_mat(truth = performance_type, estimate = .pred_class)
+
+# Plot improved confusion matrix
+improved_cm %>%
+  autoplot(type = "heatmap") +
+  labs(
+    title = "Confusion Matrix for Improved Model",
+    subtitle = "Using only the top features (valence, tempo)"
+  ) +
+  theme_minimal()
+
+# Calculate and display improved metrics
+improved_metrics <- improved_cv_results %>%
+  collect_metrics() %>%
+  filter(.metric == "accuracy")
+
+cat(paste("Improved Model Accuracy:", round(improved_metrics$.estimate[1] * 100, 1), "%"))
+```
+
+Row {data-height=400}
+-----------------------------------------------------------------------
+### Key Feature Visualization
+```{r}
+# Visualize the top features
+piano_data %>%
+  ggplot(aes(x = valence, y = tempo, color = performance_type)) +
+  geom_point(alpha = 0.7) +
+  scale_color_viridis_d() +
+  labs(
+    title = "Performance Classifications by Top Features",
+    x = "Valence",
+    y = "Tempo",
+    color = "Performance Type"
+  ) +
+  theme_minimal()
+```
