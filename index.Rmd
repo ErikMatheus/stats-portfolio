@@ -10,7 +10,13 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(
+  echo = FALSE,
+  cache = TRUE,
+  cache.lazy = FALSE,  # Optional: can improve performance for large objects
+  message = FALSE,
+  warning = FALSE
+)
 library(flexdashboard)
 library(plotly)
 library(jsonlite)
@@ -32,34 +38,16 @@ if (!requireNamespace("signal", quietly = TRUE)) {
 }
 ```
 
-Homework 12 {data-icon="fa-robo"}
-=======================================================================
-
-```{r child="ml_analysis.Rmd"}
-```
-
-
-Homework 11 {data-icon="fa-wave-square"}
-=======================================================================
-
-```{r tempogram_setup, include=FALSE}
-# Source the updated compmus2.R only for tempogram analysis
-source("compmus2.R")
-```
-
-```{r child="tempogram_analysis.Rmd"}
-```
 
 Introduction {data-icon="fa-music"}
 =======================================================================
 
-```{r child="introduction.Rmd"}
+```{r child="introduction.Rmd", cache=TRUE}
 ```
 
-Homework 10 {data-icon="fa-chart-bar"}
+Homework 7 {data-icon="fa-chart-line"}
 =======================================================================
-
-```{r child="visualizations.Rmd"}
+```{r child="homework7.Rmd", cache=TRUE}
 ```
 
 Homework 9 {data-icon="fa-book"}
@@ -70,5 +58,30 @@ Homework 9 {data-icon="fa-book"}
 source("compmus.R")
 ```
 
-```{r child="homework9.Rmd"}
+```{r child="homework9.Rmd", cache=TRUE}
 ```
+
+Homework 10 {data-icon="fa-chart-bar"}
+=======================================================================
+
+```{r child="visualizations.Rmd", cache=TRUE}
+```
+
+Homework 11 {data-icon="fa-wave-square"}
+=======================================================================
+
+```{r tempogram_setup, include=FALSE}
+# Source the updated compmus2.R only for tempogram analysis
+source("compmus2.R")
+```
+
+```{r child="tempogram_analysis.Rmd", cache=TRUE}
+```
+
+Homework 12 {data-icon="fa-robo"}
+=======================================================================
+
+```{r child="ml_analysis.Rmd", cache=TRUE}
+```
+
+

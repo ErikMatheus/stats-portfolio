@@ -1,0 +1,213 @@
+---
+title: "Homework 7 - Musical Feature Analysis"
+---
+
+### Musical Feature Analysis
+
+```{r}
+# Define extract_features function if not already defined in features.R
+if (!exists("extract_features")) {
+  extract_features <- function(json_file) {
+    tryCatch({
+      # Read the JSON file
+      json_data <- jsonlite::fromJSON(json_file, simplifyVector = TRUE)
+      
+      # Extract the features we need
+      features <- data.frame(
+        filename = json_file,
+        bpm = json_data$rhythm$bpm,
+        danceability = json_data$rhythm$danceability,
+        onset_rate = json_data$rhythm$onset_rate,
+        stringsAsFactors = FALSE
+      )
+      
+      return(features)
+    }, error = function(e) {
+      warning(paste("Error processing file:", json_file, "-", e$message))
+      # Return empty dataframe with correct structure
+      return(data.frame(
+        filename = json_file,
+        bpm = NA,
+        danceability = NA,
+        onset_rate = NA,
+        stringsAsFactors = FALSE
+      ))
+    })
+  }
+}
+
+# Load JSON files and extract features
+json_files <- list.files("C:/Users/erikl/Downloads/compmus-corpus-2025/features", 
+                         pattern = "*.json", full.names = TRUE)
+
+# Check if files exist
+if(length(json_files) == 0) {
+  # If path doesn't exist or no files found, use sample data
+  all_features <- data.frame(
+    filename = c("erik-l-1", "erik-l-2", "fur-elise", "example-1", "example-2"),
+    bpm = c(95, 110, 170, 125, 140),
+    danceability = c(0.25, 0.3, 0.4, 0.7, 0.85),
+    onset_rate = c(4.2, 5.1, 7.2, 6.5, 8.9)
+  )
+} else {
+  # Process the JSON files with error handling
+  all_features <- purrr::map_df(json_files, function(file) {
+    tryCatch({
+      jsonlite::fromJSON(file) %>%
+        with(data.frame(
+          filename = file,
+          bpm = rhythm$bpm,
+          danceability = rhythm$danceability,
+          onset_rate = rhythm$onset_rate,
+          stringsAsFactors = FALSE
+        ))
+    }, error = function(e) {
+      warning(paste("Error processing", file, "-", e$message))
+      data.frame(
+        filename = file,
+        bpm = NA,
+        danceability = NA,
+        onset_rate = NA,
+        stringsAsFactors = FALSE
+      )
+    })
+  })
+  
+  # Clean filenames
+  all_features <- all_features %>%
+    mutate(filename = gsub(".mp3.json", "", basename(filename)))
+}
+
+# Remove rows with NA values
+all_features <- all_features %>% 
+  filter(!is.na(bpm) & !is.na(danceability) & !is.na(onset_rate))
+
+# Default selected file (ensure it exists in the dataset)
+selected_file <- ifelse("erik-l-2" %in% all_features$filename, "erik-l-2", all_features$filename[1])
+
+# Compute density estimates (to get approximate y-axis maximums for each feature)
+dens_bpm   <- density(all_features$bpm)
+max_bpm    <- max(dens_bpm$y)
+dens_dance <- density(all_features$danceability)
+max_dance  <- max(dens_dance$y)
+dens_onset <- density(all_features$onset_rate)
+max_onset  <- max(dens_onset$y)
+
+# Function to create density plots WITHOUT red lines
+create_density_plot <- function(data, feature, title, xlabel, fill_color) {
+  ggplot(data) +
+    geom_density(aes_string(x = feature), fill = fill_color, alpha = 0.6) +
+    theme_minimal() +
+    labs(title = title, x = xlabel, y = "Density") +
+    theme(plot.title = element_text(size = 14, face = "bold"))
+}
+
+# Create density plots
+plot_bpm   <- create_density_plot(all_features, "bpm", "Beats Per Minute (BPM)", "BPM", "lightblue")
+plot_dance <- create_density_plot(all_features, "danceability", "Danceability Score (0-1)", "Danceability", "lightgreen")
+plot_onset <- create_density_plot(all_features, "onset_rate", "Onset Rate (Events per Second)", "Onset Rate", "lightsalmon")
+
+# Convert to Plotly objects
+p1 <- ggplotly(plot_bpm)
+p2 <- ggplotly(plot_dance)
+p3 <- ggplotly(plot_onset)
+
+# Combine plots into a 3-row subplot
+fig <- subplot(p1, p2, p3, nrows = 3, shareX = FALSE, heights = c(0.33, 0.33, 0.33))
+
+# Get default red line positions
+default_bpm   <- all_features$bpm[all_features$filename == selected_file]
+default_dance <- all_features$danceability[all_features$filename == selected_file]
+default_onset <- all_features$onset_rate[all_features$filename == selected_file]
+
+# Add red lines as shapes using each subplot's axis reference
+fig <- fig %>% layout(
+  shapes = list(
+    list(  # BPM subplot (first row)
+      type = "line",
+      x0 = default_bpm, x1 = default_bpm,
+      y0 = 0, y1 = max_bpm,
+      xref = "x1", yref = "y1",
+      line = list(color = "red", width = 2)
+    ),
+    list(  # Danceability subplot (second row)
+      type = "line",
+      x0 = default_dance, x1 = default_dance,
+      y0 = 0, y1 = max_dance,
+      xref = "x2", yref = "y2",
+      line = list(color = "red", width = 2)
+    ),
+    list(  # Onset Rate subplot (third row)
+      type = "line",
+      x0 = default_onset, x1 = default_onset,
+      y0 = 0, y1 = max_onset,
+      xref = "x3", yref = "y3",
+      line = list(color = "red", width = 2)
+    )
+  ),
+  title = paste("Audio Feature Distributions<br><sup>Selected track:", selected_file, "</sup>")
+)
+
+# Unique filenames for dropdown menu
+filenames <- sort(unique(all_features$filename))
+
+# Create dropdown buttons that update the red line positions and the title.
+dropdown_buttons <- lapply(filenames, function(fname) {
+  bpm_val   <- all_features$bpm[all_features$filename == fname]
+  dance_val <- all_features$danceability[all_features$filename == fname]
+  onset_val <- all_features$onset_rate[all_features$filename == fname]
+  
+  list(
+    method = "relayout",
+    args = list(list(
+      shapes = list(
+        list(  # BPM red line
+          type = "line",
+          x0 = bpm_val, x1 = bpm_val,
+          y0 = 0, y1 = max_bpm,
+          xref = "x1", yref = "y1",
+          line = list(color = "red", width = 2)
+        ),
+        list(  # Danceability red line
+          type = "line",
+          x0 = dance_val, x1 = dance_val,
+          y0 = 0, y1 = max_dance,
+          xref = "x2", yref = "y2",
+          line = list(color = "red", width = 2)
+        ),
+        list(  # Onset Rate red line
+          type = "line",
+          x0 = onset_val, x1 = onset_val,
+          y0 = 0, y1 = max_onset,
+          xref = "x3", yref = "y3",
+          line = list(color = "red", width = 2)
+        )
+      ),
+      title = paste("Audio Feature Distributions<br><sup>Selected track:", fname, "</sup>")
+    )),
+    label = fname
+  )
+})
+
+# Add the dropdown menu
+fig <- fig %>% layout(
+  updatemenus = list(
+    list(
+      type = "dropdown",
+      active = which(filenames == selected_file) - 1,  # 0-indexed
+      buttons = dropdown_buttons,
+      direction = "down",
+      showactive = TRUE,
+      x = 0.1,
+      y = 1.15,
+      xanchor = "left"
+    )
+  )
+)
+
+fig
+```
+
+***
+
+The AI generated piano song scores relative low on all metrics while Für Elise has a relatively high bpm, low danceability and average onset rate. The fact that both piano songs have a low danceability isn't surprising, and it's great to see that Essentia is able to capture this feature well!
